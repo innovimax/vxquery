@@ -20,7 +20,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.vxquery.compiler.rewriter.rules.ConsolidateAssignAggregateRule;
-import org.apache.vxquery.compiler.rewriter.rules.ConsolidateUnnestsRule;
 import org.apache.vxquery.compiler.rewriter.rules.ConvertAssignToUnnestRule;
 import org.apache.vxquery.compiler.rewriter.rules.ConvertFromAlgebricksExpressionsRule;
 import org.apache.vxquery.compiler.rewriter.rules.ConvertToAlgebricksExpressionsRule;
@@ -38,7 +37,7 @@ import org.apache.vxquery.compiler.rewriter.rules.RemoveRedundantDataExpressions
 import org.apache.vxquery.compiler.rewriter.rules.RemoveRedundantPromoteExpressionsRule;
 import org.apache.vxquery.compiler.rewriter.rules.RemoveRedundantTreatExpressionsRule;
 import org.apache.vxquery.compiler.rewriter.rules.RemoveUnusedSortDistinctNodesRule;
-import org.apache.vxquery.compiler.rewriter.rules.RemoveUnusedTreatRule;
+import org.apache.vxquery.compiler.rewriter.rules.RemoveUnusedUnnestIterateRule;
 import org.apache.vxquery.compiler.rewriter.rules.SetCollectionDataSourceRule;
 import org.apache.vxquery.compiler.rewriter.rules.SetVariableIdContextRule;
 
@@ -85,15 +84,16 @@ public class RewriteRuleset {
 
         // Remove unused functions.
         normalization.add(new RemoveUnusedSortDistinctNodesRule());
+        normalization.add(new RemoveRedundantTreatExpressionsRule());
+        normalization.add(new RemoveRedundantDataExpressionsRule());
+        normalization.add(new RemoveRedundantPromoteExpressionsRule());
+        normalization.add(new RemoveRedundantCastExpressionsRule());
+        normalization.add(new RemoveRedundantBooleanExpressionsRule());
         normalization.add(new RemoveRedundantVariablesRule());
         normalization.add(new RemoveUnusedAssignAndAggregateRule());
 
         // TODO Fix the group by operator before putting back in the rule set.
         //        normalization.add(new ConvertAssignSortDistinctNodesToOperatorsRule());
-
-        normalization.add(new RemoveUnusedTreatRule());
-        normalization.add(new RemoveRedundantVariablesRule());
-        normalization.add(new RemoveUnusedAssignAndAggregateRule());
 
         // Find unnest followed by aggregate in a subplan. 
         normalization.add(new EliminateUnnestAggregateSubplanRule());
@@ -117,7 +117,9 @@ public class RewriteRuleset {
         normalization.add(new RemoveUnusedAssignAndAggregateRule());
 
         // Adds child steps to the data source scan.
-        normalization.add(new ConsolidateUnnestsRule());
+        // TODO Replace consolidate with a new child function that takes multiple paths.
+        //        normalization.add(new ConsolidateUnnestsRule());
+        normalization.add(new RemoveUnusedUnnestIterateRule());
         normalization.add(new PushChildIntoDataScanRule());
 
         // Improvement for scalar child expressions
@@ -152,7 +154,7 @@ public class RewriteRuleset {
     /**
      * Remove expressions known to be redundant.
      */
-    public final static List<IAlgebraicRewriteRule> buildRedundantExpressionNormalizationRuleCollection() {
+    public final static List<IAlgebraicRewriteRule> buildInlineRedundantExpressionNormalizationRuleCollection() {
         List<IAlgebraicRewriteRule> normalization = new LinkedList<IAlgebraicRewriteRule>();
         normalization.add(new InlineNestedVariablesRule());
         normalization.add(new RemoveRedundantTreatExpressionsRule());
@@ -269,8 +271,6 @@ public class RewriteRuleset {
         prepareForJobGenRewrites.add(new IsolateHyracksOperatorsRule(
                 HeuristicOptimizer.hyraxOperatorsBelowWhichJobGenIsDisabled));
         prepareForJobGenRewrites.add(new ExtractCommonOperatorsRule());
-//        prepareForJobGenRewrites.add(new VXQueryExtractCommonOperatorsRule());
-//        prepareForJobGenRewrites.add(new DelayMaterializationForJoinProbeRule());
         // Re-infer all types, so that, e.g., the effect of not-is-null is
         // propagated.
         prepareForJobGenRewrites.add(new PushProjectIntoDataSourceScanRule());
